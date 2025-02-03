@@ -2,53 +2,70 @@ package org.sudokugen;
 
 import javax.swing.*;
 import javax.swing.JFrame;
-import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Properties;
+import java.util.UUID;
+import java.util.List;
 
 public class Main {
 
-    private JFrame frame;
+    private  JFrame frame;
     private JTextField[][] inputBoard = new JTextField[9][9];
     private JTextField[][] solvedBoard = new JTextField[9][9];
-    private JButton solveButton, generateButton, clearButton, printButton, selectFolderButton;
-    private JCheckBox includeSolutionCheckbox;
-    private JSlider difficultySlider;
-    private JLabel sliderValueLabel, folderLabel;
-    private JTextArea logArea;
+
+    private JScrollPane logScrollPanel;
+    private final JCheckBox includeSolutionCheckbox;
+    private final JSlider difficultySlider;
+    private JLabel sliderValueLabel, folderLabel,batchLabel;
+    private final JTextArea logArea;
     private boolean isModoOscuro=false;
     private File defaultSaveFolder;
     private static final String CONFIG_FILE = "config.properties";
+    private  JPanel mainPanel,buttonPanel,inputPanel,solvedPanel,configurationPanel,batchPanel;
+    // 🆕 Elementos nuevos
+    private final JSpinner batchSizeSpinner;
+    private final JCheckBox includeNumbersCheckbox;
+    private final JProgressBar progressBar;
+    private final JButton generateBatchButton;
+    private final SudokuPDFGenerator pdfGenerator;
 
     public Main() {
+        loadConfig(); // Cargar la carpeta de guardado
+        //if(isModoOscuro)  applyDarkTheme(); // Aplicar el tema oscuro antes de la interfaz
         frame = new JFrame("Sudoku Solver");
+
+        frame.setDefaultLookAndFeelDecorated(false);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         //frame.setSize(1920, 1080);
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
         frame.setResizable(false);
         frame.setLayout(new BorderLayout());
 
-        loadConfig(); // Cargar la carpeta de guardado
+
+
 
 
         // Panel principal
-        JPanel mainPanel = new JPanel();
+        mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.X_AXIS));
         mainPanel.setBackground(new Color(220, 220, 220));;
 
 
 
         // Crear los tableros de entrada y salida
-        JPanel inputPanel = createBoardPanel(inputBoard, "Ingresar Sudoku", 640);
-        JPanel solvedPanel = createBoardPanel(solvedBoard, "Solución", 640);
+        inputPanel = createBoardPanel(inputBoard, "Ingresar Sudoku", 640);
+        solvedPanel = createBoardPanel(solvedBoard, "Solución", 640);
 
 
         // Configurar etiqueta del slider
@@ -70,6 +87,7 @@ public class Main {
             sliderValueLabel.setText("Pistas: " + value);
         });
 
+        final JButton solveButton, generateButton, clearButton, printButton, selectFolderButton;
         // Botón de generar
         generateButton = new JButton("Generar");
         generateButton.addActionListener(e -> GeneratePuzzle());
@@ -100,7 +118,7 @@ public class Main {
 
 
 
-        JPanel buttonPanel = new JPanel();
+        buttonPanel = new JPanel();
         buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.Y_AXIS));
         buttonPanel.setPreferredSize(new Dimension(170, 640)); // Tamaño cuadrado como los tableros
         buttonPanel.setMaximumSize(new Dimension(170, 640));
@@ -136,11 +154,11 @@ public class Main {
         logArea.setBackground(new Color(240, 240, 240));
 
         // Panel de scroll para el log
-        JScrollPane logScrollPane = new JScrollPane(logArea);
-        logScrollPane.setPreferredSize(new Dimension(800, 100));
-        logScrollPane.setBackground(new Color(220,220,220));
-        logScrollPane.setFont(new Font("Arial", Font.BOLD, 20));
-        logScrollPane.setBorder(BorderFactory.createTitledBorder(
+        logScrollPanel = new JScrollPane(logArea);
+        logScrollPanel.setPreferredSize(new Dimension(800, 100));
+        logScrollPanel.setBackground(new Color(220,220,220));
+        logScrollPanel.setFont(new Font("Arial", Font.BOLD, 20));
+        logScrollPanel.setBorder(BorderFactory.createTitledBorder(
                 BorderFactory.createLineBorder(Color.BLACK, 2),
                 "Registro de Eventos",
                 0, 0,
@@ -151,13 +169,63 @@ public class Main {
         //Panel de Configuración
         //Folder de Guardado
 
-        JPanel configurationPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        configurationPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         configurationPanel.setBackground(new Color(220, 220, 220));
 
-        folderLabel = new JLabel("Carpeta de Guardado: " + defaultSaveFolder.getAbsolutePath());
+        folderLabel = new JLabel();
+
+
+
+
+        folderLabel.setText("Carpeta de Guardado: " + defaultSaveFolder.getAbsolutePath());
         folderLabel.setFont(new Font("Arial", Font.PLAIN, 20));
 
         configurationPanel.add(folderLabel);
+
+        batchPanel = new JPanel();
+        batchPanel.setLayout(new BoxLayout(batchPanel, BoxLayout.Y_AXIS));
+        batchPanel.setBackground(new Color(220, 220, 220));
+        // Etiqueta para el spinner
+        batchLabel = new JLabel("Cantidad de Sudokus:");
+        batchLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        // 🔧 Ajustar el Spinner
+        batchSizeSpinner = new JSpinner(new SpinnerNumberModel(5, 1, 1000, 5));
+        batchSizeSpinner.setFont(new Font("Arial", Font.PLAIN, 18));
+        batchSizeSpinner.setPreferredSize(new Dimension(80, 30));
+        batchSizeSpinner.setMaximumSize(new Dimension(80, 30));
+
+        // ✅ Checkbox para incluir numeración
+        includeNumbersCheckbox = new JCheckBox("Numerar");
+        includeNumbersCheckbox.setFont(new Font("Arial", Font.PLAIN, 16));
+        includeNumbersCheckbox.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        // ⏳ Barra de progreso
+        progressBar = new JProgressBar(0, 100);
+        progressBar.setStringPainted(true);
+        progressBar.setAlignmentX(Component.CENTER_ALIGNMENT);
+        progressBar.setPreferredSize(new Dimension(150, 20));
+
+        // 🔘 Botón de generación de lote
+        generateBatchButton = new JButton("Generar Lote");
+        generateBatchButton.setFont(new Font("Arial", Font.BOLD, 16));
+        generateBatchButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        generateBatchButton.setMaximumSize(new Dimension(150, 50));
+        generateBatchButton.addActionListener(e -> generateSudokuBatch());
+
+        // 📦 Agregar elementos al panel
+        batchPanel.add(batchLabel);
+        batchPanel.add(Box.createVerticalStrut(5)); // Espacio pequeño
+        batchPanel.add(batchSizeSpinner);
+        batchPanel.add(Box.createVerticalStrut(5));
+        batchPanel.add(includeNumbersCheckbox);
+        batchPanel.add(Box.createVerticalStrut(5));
+        batchPanel.add(generateBatchButton);
+        batchPanel.add(Box.createVerticalStrut(5));
+        batchPanel.add(progressBar);
+
+        buttonPanel.add(Box.createVerticalStrut(10));
+        buttonPanel.add(batchPanel);
         // Agregar componentes al frame
         mainPanel.add(Box.createHorizontalGlue());
         mainPanel.add(inputPanel);
@@ -165,12 +233,21 @@ public class Main {
         mainPanel.add(solvedPanel);
         mainPanel.add(Box.createHorizontalGlue());
 
-        frame.setJMenuBar(createMenuBar(logScrollPane));
+        pdfGenerator = SudokuPDFGenerator.getInstance();
+        pdfGenerator.setSaveDirectory(defaultSaveFolder);
+
+        frame.setJMenuBar(createMenuBar(logScrollPanel));
         frame.add(configurationPanel, BorderLayout.SOUTH);
         frame.add(mainPanel, BorderLayout.NORTH);
-        frame.add(logScrollPane, BorderLayout.CENTER); // Agregar log en la parte inferior
+        frame.add(logScrollPanel, BorderLayout.CENTER); // Agregar log en la parte inferior
         frame.setVisible(true);
+        if(isModoOscuro){
+            cambiarModoOscuro(isModoOscuro);
+        }
     }
+
+
+
 
     private JMenuBar createMenuBar(JScrollPane logScrollPane) {
         JMenuBar menuBar = new JMenuBar();
@@ -276,7 +353,9 @@ public class Main {
             try (FileInputStream in = new FileInputStream(configFile)) {
                 props.load(in);
                 defaultSaveFolder = new File(props.getProperty("saveFolder"));
+
                 isModoOscuro = Boolean.parseBoolean(props.getProperty("modoOscuro", "false")); // Cargar modo oscuro
+
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -320,6 +399,26 @@ public class Main {
                 board[row][col].setHorizontalAlignment(JTextField.CENTER);
                 board[row][col].setBackground(Color.WHITE);
                 board[row][col].setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
+
+                // Establecer filtro para que solo acepte un número del 1 al 9
+                ((AbstractDocument) board[row][col].getDocument()).setDocumentFilter(new DocumentFilter() {
+                    @Override
+                    public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException {
+                        if (text.isEmpty()) {
+                            // Permite eliminar el texto
+                            super.replace(fb, offset, length, text, attrs);
+                        } else if (text.matches("[1-9]") && fb.getDocument().getLength() == 0) {
+                            // Solo permite números entre 1 y 9 si la celda está vacía
+                            super.replace(fb, offset, length, text, attrs);
+                        }
+                    }
+
+                    @Override
+                    public void remove(FilterBypass fb, int offset, int length) throws BadLocationException {
+                        // Permite borrar contenido
+                        super.remove(fb, offset, length);
+                    }
+                });
 
                 // Diferenciar bloques de 3x3 con bordes más gruesos
                 if (row == 0 || row == 3 || row == 6) {
@@ -391,6 +490,7 @@ public class Main {
 
 
     public void GeneratePuzzle(){
+        clearBoards();
         int hints = difficultySlider.getValue(); // Obtener valor del slider
         SudokuGenerator generator = new SudokuGenerator(hints);
         int[][] generatedBoard = generator.getBoard();
@@ -401,7 +501,7 @@ public class Main {
                     inputBoard[row][col].setText("");
                 } else {
                     inputBoard[row][col].setText(String.valueOf(generatedBoard[row][col]));
-                    inputBoard[row][col].setForeground(Color.BLUE); // Diferenciar los números generados
+                    //inputBoard[row][col].setForeground(Color.BLUE); // Diferenciar los números generados
                 }
             }
         }
@@ -414,14 +514,19 @@ public class Main {
     private void clearBoards() {
         for (int row = 0; row < 9; row++) {
             for (int col = 0; col < 9; col++) {
-                inputBoard[row][col].setText("");
-                solvedBoard[row][col].setText("");
-                inputBoard[row][col].setForeground(Color.BLACK);
-                solvedBoard[row][col].setForeground(Color.BLACK);
+                inputBoard[row][col].setText("");  // Borra el contenido
+                solvedBoard[row][col].setText(""); // Borra la solución
+
+
             }
         }
-        log("¡Tableros reiniciados!"); // Borra el log
+        progressBar.setValue(0);
+        // Forzar actualización visual
+        frame.revalidate();
+        frame.repaint();
+        log("¡Tableros reiniciados!");
     }
+
 
     private void abrirSudoku() {
         JOptionPane.showMessageDialog(null, "Función para abrir un Sudoku");
@@ -434,34 +539,115 @@ public class Main {
     private void cambiarModoOscuro(boolean enabled) {
         isModoOscuro = enabled;
 
-        Color fondo = enabled ? new Color(40, 40, 40) : new Color(220, 220, 220);
-        Color texto = enabled ? Color.WHITE : Color.BLACK;
-        Color borde = enabled ? Color.DARK_GRAY : Color.BLACK;
+        Color fondoVentana = enabled ? new Color(30, 30, 30) : new Color(220, 220, 220);
+        Color fondoPaneles = enabled ? new Color(45, 45, 45) : new Color(245, 245, 245);
+        Color fondoTablero = enabled ? new Color(50, 50, 50) : Color.WHITE;
+        Color textoColor = enabled ? Color.WHITE : Color.BLACK;
+        Color bordeColor = enabled ? Color.GRAY : Color.BLACK;
+        Color fondoLog = enabled ? new Color(20, 20, 20) : new Color(240, 240, 240);
+        Color fondoConfiguracion = enabled ? new Color(40, 40, 40) : new Color(220, 220, 220);
+        Color fondoCheckbox = enabled ? new Color(60, 60, 60) : fondoPaneles;
 
-        // Cambiar colores de fondo y texto
-        frame.getContentPane().setBackground(fondo);
-        logArea.setBackground(fondo);
-        logArea.setForeground(texto);
-        folderLabel.setForeground(texto);
+        // Fondo de la ventana principal
+        frame.getContentPane().setBackground(fondoVentana);
+        frame.setBackground(fondoVentana); // Corregir el fondo del JFrame
 
+        // Fondo de los paneles
+        mainPanel.setBackground(fondoPaneles);
+        inputPanel.setBackground(fondoPaneles);
+        solvedPanel.setBackground(fondoPaneles);
+        buttonPanel.setBackground(fondoPaneles);
+        configurationPanel.setBackground(fondoConfiguracion);
+        logScrollPanel.setBackground(fondoPaneles);
+
+
+        // Área de log
+        logArea.setBackground(fondoLog);
+        logArea.setForeground(textoColor);
+
+        // Etiqueta de carpeta
+        folderLabel.setForeground(textoColor);
+
+        // Etiquetas de los paneles
+        sliderValueLabel.setForeground(textoColor);
+
+        // Fondo y bordes de los tableros
         for (JTextField[] row : inputBoard) {
             for (JTextField cell : row) {
-                cell.setBackground(fondo);
-                cell.setForeground(texto);
-                cell.setBorder(BorderFactory.createLineBorder(borde, 1));
+                cell.setBackground(fondoTablero);
+                cell.setForeground(textoColor);
+                cell.setBorder(BorderFactory.createLineBorder(bordeColor, 1));
             }
         }
         for (JTextField[] row : solvedBoard) {
             for (JTextField cell : row) {
-                cell.setBackground(fondo);
-                cell.setForeground(texto);
-                cell.setBorder(BorderFactory.createLineBorder(borde, 1));
+                cell.setBackground(fondoTablero);
+                cell.setForeground(textoColor);
+                cell.setBorder(BorderFactory.createLineBorder(bordeColor, 1));
             }
         }
 
+        // Cambiar color de los títulos en los paneles
+        for (Component component : inputPanel.getComponents()) {
+            if (component instanceof JLabel) {
+                component.setForeground(textoColor);
+            }
+        }
+
+        for (Component component : solvedPanel.getComponents()) {
+            if (component instanceof JLabel) {
+                component.setForeground(textoColor);
+            }
+        }
+
+        // Cambiar color del slider
+        difficultySlider.setBackground(fondoPaneles);
+        difficultySlider.setForeground(textoColor);
+        difficultySlider.setUI(new javax.swing.plaf.metal.MetalSliderUI() {
+            @Override
+            public void paintThumb(Graphics g) {
+                g.setColor(isModoOscuro ? Color.WHITE : Color.BLACK); // Cambiar color del thumb
+                super.paintThumb(g);
+            }
+        });
+
+        // Cambiar color de la barra de menú y submenús
+        JMenuBar menuBar = frame.getJMenuBar();
+        if (menuBar != null) {
+            menuBar.setBackground(fondoVentana);
+            menuBar.setForeground(textoColor);
+            for (MenuElement menuElement : menuBar.getSubElements()) {
+                Component menuComponent = menuElement.getComponent();
+                if (menuComponent instanceof JMenu) {
+                    JMenu menu = (JMenu) menuComponent;
+                    menu.setForeground(textoColor);
+                    menu.setBackground(fondoVentana);
+
+                    // Cambiar color de los elementos dentro del menú
+                    for (MenuElement subElement : menu.getSubElements()) {
+                        Component subComponent = subElement.getComponent();
+                        if (subComponent instanceof JMenuItem) {
+                            subComponent.setForeground(textoColor);
+                            subComponent.setBackground(fondoVentana);
+                        }
+                    }
+                }
+            }
+        }
+
+        logScrollPanel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(textoColor, 2),
+                "Registro de Eventos",
+                0, 0,
+                new Font("Arial", Font.BOLD, 20),
+                textoColor
+        ));
         // Guardar configuración
         saveConfig();
     }
+
+
+
 
 
     private void restaurarVista() {
@@ -491,7 +677,8 @@ public class Main {
         }
 
         boolean includeSolution = includeSolutionCheckbox.isSelected();
-        SudokuPDFGenerator pdfGenerator = new SudokuPDFGenerator(inputBoard, solvedBoard, includeSolution, defaultSaveFolder);
+
+        pdfGenerator.GenerateSingleSudokuPDF(inputBoard, solvedBoard, includeSolution, defaultSaveFolder);
         pdfGenerator.generatePDF();
         log("✅ Sudoku guardado en " + defaultSaveFolder.getAbsolutePath());
     }
@@ -506,6 +693,96 @@ public class Main {
         }
         return true;
     }
+
+    private void generateSudokuBatch() {
+        progressBar.setValue(0);
+        int batchSize = (Integer) batchSizeSpinner.getValue();
+        boolean includeNumbers = includeNumbersCheckbox.isSelected();
+
+        // 📂 Preguntar al usuario el nombre del archivo
+        String fileName = JOptionPane.showInputDialog(
+                frame, "Ingrese el nombre del archivo (deje vacío para generar un nombre automático):",
+                "Lote de Sudokus", JOptionPane.PLAIN_MESSAGE
+        );
+        System.out.print(fileName);
+        // 📄 Si el usuario no introduce un nombre, generar uno aleatorio
+        if (fileName == null || fileName.trim().isEmpty()) {
+            System.out.println("file is null or empty");
+            fileName = "Lote_" + UUID.randomUUID().toString().substring(0, 8) + ".pdf";
+        } else {
+            fileName += ".pdf";
+        }
+
+
+        File saveFile = new File(defaultSaveFolder, fileName);
+
+        // ⏳ Crear un hilo para no bloquear la UI
+        new Thread(() -> {
+
+            List<int[][]> sudokuList = new ArrayList<>();
+            List<int[][]> solutionList = new ArrayList<>();
+
+            try {
+                //pdfGenerator.generateBatchPDF(sudokuList, solutionList, includeNumbers, includeSolutionCheckbox.isSelected());
+
+                int validSudokus = 0;
+                while (validSudokus < batchSize) {
+                    int hints = difficultySlider.getValue();
+                    SudokuGenerator generator = new SudokuGenerator(hints);
+                    int[][] puzzle = generator.getBoard();
+
+                    // Actualizar UI con el Sudoku generado
+                    updateBoardUI(puzzle);
+
+                    int[][] solution = new int[9][9];
+                    for (int i = 0; i < 9; i++) {
+                        System.arraycopy(puzzle[i], 0, solution[i], 0, 9);
+                    }
+
+                    if (SudokuSolver.solve(solution) != -1) {
+                        // ✅ Sudoku válido, agregarlo a la lista
+                        sudokuList.add(puzzle);
+                        solutionList.add(solution);
+                        validSudokus++;
+
+                        // 🔄 Actualizar barra de progreso
+                        progressBar.setValue((validSudokus * 100) / batchSize);
+                    } else {
+                        // ❌ Sudoku no válido, intentar con otro
+                        log("Sudoku inválido, generando otro...");
+                    }
+                }
+
+                // 📄 Generar el PDF con la lista de Sudokus válidos
+                pdfGenerator.generateBatchPDF(sudokuList, solutionList, includeNumbers, includeSolutionCheckbox.isSelected());
+
+                log("✅ Lote guardado en: " + saveFile.getAbsolutePath());
+                progressBar.setValue(100);
+                JOptionPane.showMessageDialog(frame, "¡Lote generado con éxito!");
+
+            } catch (Exception e) {
+                log("⚠ Error al generar el lote: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    private void updateBoardUI(int[][] board) {
+        SwingUtilities.invokeLater(() -> {
+            for (int row = 0; row < 9; row++) {
+                for (int col = 0; col < 9; col++) {
+                    if (board[row][col] == 0) {
+                        inputBoard[row][col].setText("");
+                    } else {
+                        inputBoard[row][col].setText(String.valueOf(board[row][col]));
+                    }
+                }
+            }
+            frame.revalidate();
+            frame.repaint();
+        });
+    }
+
+
     private void log(String message) {
         logArea.append(message + "\n");
     }
