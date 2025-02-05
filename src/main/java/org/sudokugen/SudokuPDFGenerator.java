@@ -59,14 +59,15 @@ public class SudokuPDFGenerator {
             Document document = new Document(PageSize.A4);
             String batchID = "Lote_" + System.currentTimeMillis() + ".pdf";
             File batchFile = new File(saveDirectory, batchID);
-            PdfWriter.getInstance(document, new FileOutputStream(batchFile));
+            PdfWriter writer = PdfWriter.getInstance(document, new FileOutputStream(batchFile));
+
+            // Asignar el evento de numeración de páginas
+            writer.setPageEvent(new PageNumberEvent());
 
             document.open();
             Font titleFont = new Font(Font.FontFamily.HELVETICA, 20, Font.BOLD);
 
             for (int i = 0; i < sudokuList.size(); i++) {
-
-
                 PdfPTable outerTable = new PdfPTable(1);
                 outerTable.setWidthPercentage(100.0f);
 
@@ -77,7 +78,7 @@ public class SudokuPDFGenerator {
                     Paragraph title = new Paragraph("Sudoku " + (i + 1), titleFont);
                     title.setAlignment(Element.ALIGN_CENTER);
                     cell.addElement(title);
-                    cell.addElement(new Paragraph(" ")); // Espacio en blanco para separación
+                    cell.addElement(new Paragraph(" "));
                 }
                 cell.addElement(createCenteredSudokuTable(sudokuList.get(i)));
                 cell.setBorder(0);
@@ -85,13 +86,9 @@ public class SudokuPDFGenerator {
                 document.add(outerTable);
                 document.newPage();
 
-
                 if (includeSolution) {
-                    //System.out.println("solución incluida");
                     outerTable = new PdfPTable(1);
                     outerTable.setWidthPercentage(100.0f);
-
-
 
                     cell = new PdfPCell();
                     cell.setMinimumHeight(document.getPageSize().getHeight() - 36.0f - 36.0f);
@@ -116,12 +113,17 @@ public class SudokuPDFGenerator {
         }
     }
 
+
     public void generatePDF() {
         try {
             String sudokuID = generateSudokuID();
             File file = new File(saveDirectory, "Sudoku_" + System.currentTimeMillis() + "_" + sudokuID + ".pdf");
             Document document = new Document(PageSize.A4);
-            PdfWriter.getInstance(document, new FileOutputStream(file));
+            PdfWriter writer = PdfWriter.getInstance(document, new FileOutputStream(file));
+
+            // Asignar el evento de numeración de páginas
+            writer.setPageEvent(new PageNumberEvent());
+
             document.open();
 
             PdfPTable outerTable = new PdfPTable(1);
@@ -135,7 +137,6 @@ public class SudokuPDFGenerator {
             outerTable.addCell(cell);
             document.add(outerTable);
             document.newPage();
-
 
             if (includeSolution) {
                 outerTable = new PdfPTable(1);
@@ -162,6 +163,7 @@ public class SudokuPDFGenerator {
             e.printStackTrace();
         }
     }
+
 
     // 📌 Nuevo método para centrar el Sudoku en la página
     private PdfPTable createCenteredSudokuTable(int[][] board) {
@@ -246,5 +248,21 @@ public class SudokuPDFGenerator {
         StringBuilder hex = new StringBuilder();
         for (byte b : bytes) hex.append(String.format("%02x", b));
         return hex.toString();
+    }
+
+    // Clase interna para manejar la numeración de páginas
+    private static class PageNumberEvent extends PdfPageEventHelper {
+        private Font footerFont = new Font(Font.FontFamily.HELVETICA, 10, Font.NORMAL);
+
+        @Override
+        public void onEndPage(PdfWriter writer, Document document) {
+            PdfContentByte cb = writer.getDirectContent();
+            Rectangle pageSize = document.getPageSize();
+            ColumnText.showTextAligned(cb, Element.ALIGN_CENTER,
+                    new Phrase(String.format("%d", writer.getPageNumber()), footerFont),
+                    (pageSize.getLeft() + pageSize.getRight()) / 2, // Centrado horizontalmente
+                    pageSize.getBottom() + 20, // Posición en la parte inferior
+                    0);
+        }
     }
 }

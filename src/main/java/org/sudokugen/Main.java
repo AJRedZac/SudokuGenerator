@@ -190,7 +190,7 @@ public class Main {
         batchLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         // 🔧 Ajustar el Spinner
-        batchSizeSpinner = new JSpinner(new SpinnerNumberModel(5, 1, 1000, 5));
+        batchSizeSpinner = new JSpinner(new SpinnerNumberModel(100, 1, 10000, 5));
         batchSizeSpinner.setFont(new Font("Arial", Font.PLAIN, 18));
         batchSizeSpinner.setPreferredSize(new Dimension(80, 30));
         batchSizeSpinner.setMaximumSize(new Dimension(80, 30));
