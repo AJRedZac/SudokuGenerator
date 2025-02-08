@@ -730,31 +730,27 @@ public class Main {
                     int hints = difficultySlider.getValue();
                     SudokuGenerator generator = new SudokuGenerator(hints);
                     int[][] puzzle = generator.getBoard();
-
+                    int[][] solution = generator.getSolution();
                     // Actualizar UI con el Sudoku generado
-                    updateBoardUI(puzzle);
+                    //updateBoardUI(puzzle);
 
-                    int[][] solution = new int[9][9];
-                    for (int i = 0; i < 9; i++) {
-                        System.arraycopy(puzzle[i], 0, solution[i], 0, 9);
-                    }
+                    //int[][] solution = new int[9][9];
+                    //for (int i = 0; i < 9; i++) {
+                    //    System.arraycopy(puzzle[i], 0, solution[i], 0, 9);
+                    //}
 
-                    if (SudokuSolver.solve(solution) != -1) {
-                        // ✅ Sudoku válido, agregarlo a la lista
+                    // ✅ Sudoku válido, agregarlo a la lista
                         sudokuList.add(puzzle);
                         solutionList.add(solution);
                         validSudokus++;
 
                         // 🔄 Actualizar barra de progreso
                         progressBar.setValue((validSudokus * 100) / batchSize);
-                    } else {
-                        // ❌ Sudoku no válido, intentar con otro
-                        log("Sudoku inválido, generando otro...");
-                    }
+
                 }
 
                 // 📄 Generar el PDF con la lista de Sudokus válidos
-                pdfGenerator.generateBatchPDF(sudokuList, solutionList, includeNumbers, includeSolutionCheckbox.isSelected());
+                pdfGenerator.generateBatchPDF_Alternate(sudokuList, solutionList, includeNumbers,saveFile);
 
                 log("✅ Lote guardado en: " + saveFile.getAbsolutePath());
                 progressBar.setValue(100);

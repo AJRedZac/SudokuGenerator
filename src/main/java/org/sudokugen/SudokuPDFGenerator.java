@@ -50,7 +50,7 @@ public class SudokuPDFGenerator {
         this.saveDirectory = saveDirectory;
     }
 
-    public void generateBatchPDF(List<int[][]> sudokuList, List<int[][]> solutionList, boolean includeNumbers, boolean includeSolution) {
+    public void generateBatchPDF(List<int[][]> sudokuList, List<int[][]> solutionList, boolean includeNumbers, boolean includeSolution, String filename) {
         if (sudokuList.size() != solutionList.size()) {
             throw new IllegalArgumentException("El número de sudokus y soluciones no coincide.");
         }
@@ -265,4 +265,101 @@ public class SudokuPDFGenerator {
                     0);
         }
     }
+
+    public void generateBatchPDF_Alternate(List<int[][]> sudokuList, List<int[][]> solutionList, boolean includeNumbers, File batchFile) {
+        if (sudokuList.size() != solutionList.size()) {
+            throw new IllegalArgumentException("El número de sudokus y soluciones no coincide.");
+        }
+
+        try {
+            Document document = new Document(PageSize.A4);
+            //String batchID = filename;
+            //File batchFile = new File(saveDirectory, batchID);
+            PdfWriter writer = PdfWriter.getInstance(document, new FileOutputStream(batchFile));
+
+            // Asignar el evento de numeración de páginas
+            //writer.setPageEvent(new PageNumberEvent());
+
+            document.open();
+
+            // 📄 Agregar página de título
+            String [] splitTitle= batchFile.getName().split("\\.");
+            addTitlePage(document, splitTitle[0]);
+
+            Font titleFont = new Font(Font.FontFamily.HELVETICA, 30, Font.BOLD);
+
+            // 🔹 Primera parte: Todos los sudokus
+            for (int i = 0; i < sudokuList.size(); i++) {
+                PdfPTable outerTable = new PdfPTable(1);
+                outerTable.setWidthPercentage(100.0f);
+
+                PdfPCell cell = new PdfPCell();
+                cell.setMinimumHeight(document.getPageSize().getHeight() - 36.0f - 36.0f);
+                cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                if (includeNumbers) {
+                    Paragraph title = new Paragraph("Sudoku " + (i + 1), titleFont);
+                    title.setAlignment(Element.ALIGN_CENTER);
+                    cell.addElement(title);
+                    cell.addElement(new Paragraph(" "));
+                }
+                cell.addElement(createCenteredSudokuTable(sudokuList.get(i)));
+                cell.setBorder(0);
+                outerTable.addCell(cell);
+                document.add(outerTable);
+                document.newPage();
+            }
+
+            // 🔹 Separador de sección
+            addTitlePage(document, "SOLUTIONS");
+
+            // 🔹 Segunda parte: Todas las soluciones
+            for (int i = 0; i < solutionList.size(); i++) {
+                PdfPTable outerTable = new PdfPTable(1);
+                outerTable.setWidthPercentage(100.0f);
+
+                PdfPCell cell = new PdfPCell();
+                cell.setMinimumHeight(document.getPageSize().getHeight() - 36.0f - 36.0f);
+                cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                if (includeNumbers) {
+                    Paragraph solutionHeader = new Paragraph("Solution " + (i + 1), titleFont);
+                    solutionHeader.setAlignment(Element.ALIGN_CENTER);
+                    cell.addElement(solutionHeader);
+                    cell.addElement(new Paragraph(" "));
+                }
+                cell.addElement(createCenteredSudokuTable(solutionList.get(i)));
+                cell.setBorder(0);
+                outerTable.addCell(cell);
+                document.add(outerTable);
+                document.newPage();
+            }
+
+            document.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // 📌 Método para agregar una página de título centrada
+    private void addTitlePage(Document document, String title) throws DocumentException {
+        PdfPTable outerTable = new PdfPTable(1);
+        outerTable.setWidthPercentage(100.0f);
+
+        PdfPCell cell = new PdfPCell();
+        cell.setMinimumHeight(document.getPageSize().getHeight() - 36.0f - 36.0f);
+        cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+
+        Font titleFont = new Font(Font.FontFamily.HELVETICA, 70, Font.BOLD);
+        Paragraph titleParagraph = new Paragraph(title, titleFont);
+        titleParagraph.setAlignment(Element.ALIGN_CENTER);
+        cell.addElement(titleParagraph);
+        // 📄 Ajustar espaciado para centrar verticalmente
+        float pageHeight = document.getPageSize().getHeight();
+        float titlePosition = pageHeight / 2;
+
+        cell.setBorder(0);
+        outerTable.addCell(cell);
+        document.add(outerTable);
+        document.newPage();
+    }
+
 }

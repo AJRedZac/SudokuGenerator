@@ -1,11 +1,13 @@
 package org.sudokugen;
 
+import java.util.Arrays;
 import java.util.Random;
 
 public class SudokuGenerator {
     private static final int SIZE = 9;
     private static final int EMPTY = 0;
     private int[][] board = new int[SIZE][SIZE];
+    private int[][] solution;
     private Random random = new Random();
 
     public SudokuGenerator(int pistas) {
@@ -13,9 +15,11 @@ public class SudokuGenerator {
             resetBoard();
             fillDiagonal();
             fillRemaining(0, 3);
+            solution = Arrays.stream(board).map(int[]::clone).toArray(int[][]::new);
             removeNumbers(81 - pistas); // Ajustar cantidad de pistas
 
     }
+
 
     private void resetBoard() {
         for (int i = 0; i < SIZE; i++) {
@@ -101,6 +105,9 @@ public class SudokuGenerator {
         return board;
     }
 
+    public int[][] getSolution() {
+        return solution;
+    }
     public void printBoard() {
         for (int[] row : board) {
             for (int num : row)
